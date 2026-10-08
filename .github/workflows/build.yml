@@ -22,8 +22,21 @@ jobs:
         with:
           gradle-version: 8.9
       - name: Build both APKs
+        shell: bash
         working-directory: ${{ env.ROOT }}
-        run: gradle :user:assembleRelease :admin:assembleRelease --no-daemon
+        run: gradle :user:assembleRelease :admin:assembleRelease --no-daemon --console=plain 2>&1 | tee $GITHUB_WORKSPACE/build.log
+      - name: Show errors (only if build failed)
+        if: failure()
+        shell: bash
+        run: |
+          grep -E "^e: |What went wrong|Execution failed|Could not|error:" -A3 build.log | sed 's#file:///[^ ]*/##' | head -60 > errors.txt || true
+          { echo '## Build errors - copy this and send'; echo '```'; cat errors.txt; echo '```'; } >> $GITHUB_STEP_SUMMARY
+          echo "::error::$(head -c 1500 errors.txt | tr '\n' ' ')"
+      - uses: actions/upload-artifact@v4
+        if: failure()
+        with:
+          name: build-log
+          path: build.log
       - uses: actions/upload-artifact@v4
         with:
           name: SastaBazar-User-APK
